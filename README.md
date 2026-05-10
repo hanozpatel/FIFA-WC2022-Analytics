@@ -69,6 +69,10 @@ python scripts/01_xg_per_player.py
 python scripts/02_xg_vs_goals.py
 python scripts/03_defensive_metrics.py
 python scripts/04_pitch_map.py
+python scripts/05_press_outcomes.py
+python scripts/06_ppda.py
+python scripts/07_match_state.py
+python scripts/08_xg_conceded.py
 ```
 
 Note: The first run fetches data from GitHub via `statsbombpy` — subsequent runs
@@ -158,22 +162,85 @@ Spatial visualisations placing event data directly on a football pitch using `mp
 
 ---
 
+### Script 05 — Press Success Rate ([scripts/05_press_outcomes.py](scripts/05_press_outcomes.py))
+Converts pressing from a volume metric into an effectiveness metric. A press is
+"successful" if the very next event shows the pressing team in possession.
+
+**Outputs:**
+- [outputs/figures/05_press_volume_vs_success.png](outputs/figures/05_press_volume_vs_success.png) — scatter of P/90 vs success rate per team
+- [outputs/tables/press_success_rate.csv](outputs/tables/press_success_rate.csv)
+
+**Key finding:** Correlation between press volume (P/90) and success rate = **-0.465**.
+High-volume teams win the ball back less often per press. Spain pressed least among
+competitive teams (111.2 P/90) but had the highest immediate success rate (18.0%).
+Japan pressed most (173 P/90) with only 5.8% success.
+
+---
+
+### Script 06 — PPDA ([scripts/06_ppda.py](scripts/06_ppda.py))
+Calculates PPDA (Passes Allowed Per Defensive Action) per team — a standard
+pressing efficiency metric combining pressures, interceptions, and tackles.
+Lower PPDA = more aggressive press.
+
+**Outputs:**
+- [outputs/figures/06_ppda_per_team.png](outputs/figures/06_ppda_per_team.png) — ranked bar chart
+- [outputs/tables/ppda_per_team.csv](outputs/tables/ppda_per_team.csv)
+
+**Key findings:**
+| Team | PPDA | Interpretation |
+|------|------|----------------|
+| Spain | 2.29 | Most aggressive press |
+| Argentina | 2.88 | Second most aggressive |
+| Japan | 3.94 | High volume, moderate efficiency |
+| Costa Rica | 4.57 | Deepest defensive block |
+| Poland | 4.63 | Most passive press |
+
+Correlation between PPDA and press success rate: **-0.630** (strong). More
+aggressive pressers tend to immediately win the ball back more often.
+
+---
+
+### Script 07 — Match State Segmentation ([scripts/07_match_state.py](scripts/07_match_state.py))
+Tags every event with the match state (Winning / Drawing / Losing) at that moment,
+then analyses how pressing volume and zone change with the scoreline.
+
+**Outputs:**
+- [outputs/figures/07a_pressing_by_match_state.png](outputs/figures/07a_pressing_by_match_state.png) — grouped bar chart per team per state
+- [outputs/figures/07b_press_zone_by_state.png](outputs/figures/07b_press_zone_by_state.png) — attacking-third % by state
+- [outputs/tables/pressing_by_match_state.csv](outputs/tables/pressing_by_match_state.csv)
+
+**Key findings:**
+- Tournament-wide, teams press *most* when winning (75 per 1,000 events) and
+  *least* when losing (67 per 1,000 events) — counterintuitively, losing teams
+  do not blindly press harder.
+- However, when losing, teams press *higher up the pitch* (25.4% in attacking
+  third vs 21.4% when winning) — they press selectively, not volumetrically.
+- Extreme examples: Brazil's L/W press ratio = 0.08 (near-total defensive block
+  when behind); South Korea's L/W ratio = 14.50 (desperation high press when losing).
+
+---
+
+### Script 08 — xG Conceded vs Pressing Zone ([scripts/08_xg_conceded.py](scripts/08_xg_conceded.py))
+Cross-references pressing aggressiveness with shot quality allowed — testing
+whether pressing high reduces the xG of chances conceded.
+
+**Outputs:**
+- [outputs/figures/08a_att_press_vs_xg_conceded.png](outputs/figures/08a_att_press_vs_xg_conceded.png) — attacking-third press % vs avg xG conceded/shot
+- [outputs/figures/08b_ppda_vs_xg_conceded.png](outputs/figures/08b_ppda_vs_xg_conceded.png) — PPDA vs avg xG conceded/shot
+- [outputs/tables/xg_conceded_vs_pressing.csv](outputs/tables/xg_conceded_vs_pressing.csv)
+
+**Key finding:** PPDA vs avg xG conceded per shot: **r = -0.429, p = 0.014 (significant)**.
+More aggressive pressers concede *higher*-quality shots per attempt — but face *fewer*
+shots overall (Spain: 27 shots faced, fewest of any team). The tradeoff: aggressive
+pressing reduces shot volume but the chances that break through are better quality.
+This is the central quantitative finding toward the research paper's core question.
+
+---
+
 ## Research Direction
 
 This practice work feeds into a research investigation of **defensive behaviour and
-possession under pressure** — examining how teams structure defensive actions in
-relation to possession transitions, and whether event-level pressure metrics predict
-defensive outcomes better than traditional aggregated statistics.
-
-**Natural next steps from this practice work:**
-1. Link pressure events to the *possession* sequence that follows — does a successful
-   press lead to a shot within the next N events?
-2. Build a "PPDA" (Passes Allowed Per Defensive Action) metric, a standard pressing
-   efficiency measure that combines pressures, tackles, and interceptions
-3. Segment defensive actions by match state (winning/losing/drawing) to see if teams
-   press differently under different scorelines
-4. Cross-reference pressing zones with xG conceded in those zones — does pressing
-   high actually reduce shot quality against you?
+possession under pressure**.
 
 ---
 
