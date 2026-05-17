@@ -105,7 +105,7 @@ ax.legend(handles=[green_patch, red_patch, grey_patch], fontsize=8, loc="upper l
 ax.set_xlabel("Expected Goals (xG)", fontsize=11)
 ax.set_ylabel("Actual Goals Scored", fontsize=11)
 ax.set_title(
-    "xG vs Actual Goals — La Liga 2015/16 (30 matches)\n"
+    "xG vs Actual Goals — FIFA World Cup 2022 (64 matches)\n"
     "Bubble size = number of shots taken",
     fontsize=12, fontweight="bold", pad=12,
 )

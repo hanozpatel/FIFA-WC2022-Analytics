@@ -4,14 +4,11 @@ Script 00 — Data Exploration
 Purpose: Load StatsBomb Open Data, understand the structure, and confirm
          everything is working before running any analysis.
 
-Competition choice: FIFA World Cup 2022 (Qatar) — Messi, Mbappé, Ronaldo,
-the most-watched tournament of the last decade. 64 matches, rich event data,
-results are intuitively checkable (we know who scored and who pressed well).
+Competition: FIFA World Cup 2022 (Qatar) — Messi, Mbappé, Ronaldo,
+the most-watched tournament of the last decade. 64 matches, 32 teams,
+rich event data, results intuitively checkable.
   - competition_id = 43  (FIFA World Cup)
   - season_id      = 106 (2022)
-
-Alternative: UEFA Euro 2024 (competition_id=55, season_id=282) for the
-             most recent major international tournament.
 
 Run: python scripts/00_explore_data.py
 """

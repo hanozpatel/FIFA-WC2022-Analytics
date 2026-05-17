@@ -1,48 +1,65 @@
-# Football Analytics Research — Practice Project
+# FIFA World Cup 2022 — Football Analytics
 
-A structured practice environment for football (soccer) analytics, built toward a
-research paper on **defensive behaviour and possession metrics**. This repository
-uses the **StatsBomb Open Data** dataset and Python tooling to develop intuition
-for event-level football data before applying the same techniques to proprietary data.
+An end-to-end football analytics pipeline built on StatsBomb event-level data
+from the **FIFA World Cup 2022** (Qatar, 64 matches, 32 teams). The project
+computes attacking and defensive metrics from raw event data, visualises them
+on pitch maps, runs statistical analyses, and synthesises findings into an
+AI-generated tournament intelligence report using the **Claude API**.
+
+Built as a research practice environment toward a paper on **defensive behaviour
+and possession under pressure**.
 
 ---
 
 ## Dataset
 
 **StatsBomb Open Data — FIFA World Cup 2022**
-- Source: [github.com/statsbomb/open-data](https://github.com/statsbomb/open-data)
-- Access: Python SDK `statsbombpy` — no manual downloads required
-- Competition: FIFA World Cup 2022 (`competition_id=43`, `season_id=106`)
-- Coverage: All 64 matches, 32 teams, every player who featured
-- Data type: Event-level (every pass, shot, pressure, tackle, dribble — with XY coordinates)
-- Licence: StatsBomb Open Data Licence (non-commercial / research use permitted)
-- Citation: StatsBomb Services Ltd. (2023). *StatsBomb Open Data* [Data set]. https://github.com/statsbomb/open-data
 
-Alternative datasets available in the same SDK:
-| Competition | IDs | Notes |
-|---|---|---|
-| UEFA Euro 2024 | `competition_id=55, season_id=282` | Most recent major tournament |
-| 1. Bundesliga 2023/24 | `competition_id=9, season_id=281` | Most recent league season |
-| Ligue 1 2022/23 | `competition_id=7, season_id=235` | 32 matches |
+| Property | Value |
+|---|---|
+| Source | [github.com/statsbomb/open-data](https://github.com/statsbomb/open-data) |
+| Access | `statsbombpy` Python SDK — no manual downloads |
+| Scope | All 64 matches · 32 teams · every on-ball event with XY coordinates |
+| Licence | StatsBomb Open Data Licence (non-commercial / research) |
+| Citation | StatsBomb Services Ltd. (2023). *StatsBomb Open Data* [Data set]. https://github.com/statsbomb/open-data |
+
+StatsBomb's event data includes a pre-computed xG value (`shot_statsbomb_xg`)
+for every shot using their proprietary shot quality model — one of the most
+accurate publicly available.
 
 ---
 
 ## Repository Structure
 
 ```
-football-analytics/
-├── data/
-│   ├── raw/          # Raw data pulled from StatsBomb API (gitignored)
-│   └── processed/    # Cleaned/aggregated data (gitignored)
-├── notebooks/        # Exploratory Jupyter notebooks
-├── scripts/          # Standalone analysis scripts (numbered by step)
-├── src/              # Reusable Python modules
-│   ├── data_loader.py    # StatsBomb loading + shot/pressure helpers
-│   ├── metrics.py        # xG aggregation, pressures per 90, zone counts
-│   └── viz.py            # Pitch maps and chart helpers (mplsoccer)
+FIFA-WC2022-Analytics/
+├── scripts/                      # Analysis pipeline — run in order (00 → 09)
+│   ├── 00_explore_data.py        # Data loading, event type inspection, sanity checks
+│   ├── 01_xg_per_player.py       # Cumulative xG per player + over/underperformance
+│   ├── 02_xg_vs_goals.py         # xG vs actual goals — bar chart + scatter plot
+│   ├── 03_defensive_metrics.py   # Pressures per 90 by player and team, pitch zones
+│   ├── 04_pitch_map.py           # Shot map (Messi) + pressure heatmaps on pitch
+│   ├── 05_press_outcomes.py      # Press success rate — volume vs effectiveness
+│   ├── 06_ppda.py                # PPDA (Passes Allowed Per Defensive Action)
+│   ├── 07_match_state.py         # Pressing by game state (winning / drawing / losing)
+│   ├── 08_xg_conceded.py         # Pressing aggression vs shot quality allowed
+│   └── 09_ai_tournament_report.py # Claude API: AI-generated tournament intelligence report
+│
+├── src/                          # Reusable Python modules
+│   ├── data_loader.py            # StatsBomb loading helpers (competitions, matches, events)
+│   ├── metrics.py                # All metric calculations (xG, PPDA, press rate, etc.)
+│   └── viz.py                    # Pitch maps and charts via mplsoccer + matplotlib
+│
 ├── outputs/
-│   ├── figures/      # Saved charts and pitch maps
-│   └── tables/       # Saved CSV output tables
+│   ├── figures/                  # Saved PNG charts and pitch maps (gitignored)
+│   ├── tables/                   # Saved CSV metric tables (gitignored)
+│   └── reports/                  # AI-generated markdown reports (gitignored)
+│
+├── data/
+│   ├── raw/                      # StatsBomb raw cache (gitignored)
+│   └── processed/                # Intermediate data (gitignored)
+│
+├── notebooks/                    # Jupyter notebooks for exploratory work
 ├── requirements.txt
 └── README.md
 ```
@@ -54,16 +71,16 @@ football-analytics/
 ```bash
 # 1. Clone the repository
 git clone <your-repo-url>
-cd football-analytics
+cd FIFA-WC2022-Analytics
 
 # 2. Create and activate a virtual environment
 python3 -m venv .venv
-source .venv/bin/activate   # macOS/Linux
+source .venv/bin/activate        # macOS / Linux
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Run scripts in order
+# 4. Run the pipeline in order
 python scripts/00_explore_data.py
 python scripts/01_xg_per_player.py
 python scripts/02_xg_vs_goals.py
@@ -73,189 +90,273 @@ python scripts/05_press_outcomes.py
 python scripts/06_ppda.py
 python scripts/07_match_state.py
 python scripts/08_xg_conceded.py
+
+# 5. Generate the AI report (requires Anthropic API key)
+export ANTHROPIC_API_KEY="your-key-here"   # get one at console.anthropic.com
+python scripts/09_ai_tournament_report.py
 ```
 
-Note: The first run fetches data from GitHub via `statsbombpy` — subsequent runs
-use a local cache and are significantly faster.
+> **First run note:** `statsbombpy` fetches data from GitHub on first use.
+> Subsequent runs read from a local cache and are significantly faster.
 
 ---
 
-## Analyses Built
+## Analysis Pipeline
 
-### Script 00 — Data Exploration ([scripts/00_explore_data.py](scripts/00_explore_data.py))
-Loads the dataset, lists available competitions, inspects event types, and
-prints a summary of shot and pressure event structures. Run this first to verify
-your environment is working.
+### `00_explore_data.py` — Data Exploration
+**What it does:** Loads the StatsBomb SDK, fetches all 64 World Cup 2022 matches,
+loads events from a sample, and prints the full data structure — event types, column
+names, shot details, pressure event samples.
 
-**Key finding:** 64 matches yield ~96,000 event rows; 1,494 shot events with
-StatsBomb xG values ranging from 0.006 to 0.921 (avg 0.111 per shot).
+**Run this first** to verify your environment and understand the raw data before
+any analysis.
+
+**Key output:**
+```
+Total events (64 matches): ~234,000 rows
+Unique event types: 30
+Shot events: 1,494  |  xG range: 0.006 – 0.921  |  avg 0.111/shot
+Pressure events: 16,553
+```
 
 ---
 
-### Script 01 — xG per Player ([scripts/01_xg_per_player.py](scripts/01_xg_per_player.py))
-Aggregates StatsBomb's pre-computed xG per player, counting total shots, cumulative
-xG, actual goals, and the over/underperformance difference (`xg_diff`).
+### `01_xg_per_player.py` — xG Per Player
+**What it does:** Aggregates StatsBomb's pre-computed xG across all 64 matches to
+produce a cumulative per-player table. Computes `xg_diff = goals − xG` to identify
+finishers who over- or underperformed their chances.
 
-**Output:** [outputs/tables/xg_per_player.csv](outputs/tables/xg_per_player.csv)
+**Output files:**
+- `outputs/tables/xg_per_player.csv`
 
-**Key findings (World Cup 2022):**
+**Key results:**
+
 | Player | Shots | xG | Goals | xG Diff |
-|--------|-------|----|-------|---------|
+|---|---|---|---|---|
 | Messi | 34 | 7.60 | 9 | +1.40 |
 | Mbappé | 32 | 5.02 | 9 | **+3.98** |
-| Lewandowski | 12 | 3.13 | 2 | -1.13 |
-| Lautaro Martínez | 15 | 2.91 | 1 | -1.91 |
-| Cristiano Ronaldo | 11 | 1.94 | 1 | -0.94 |
+| Lewandowski | 12 | 3.13 | 2 | −1.13 |
+| Lautaro Martínez | 15 | 2.91 | 1 | −1.91 |
+| Cristiano Ronaldo | 11 | 1.94 | 1 | −0.94 |
 
-Mbappé's +3.98 xG diff over 32 shots is a statistically meaningful signal of
-elite finishing. Lautaro's -1.91 over 15 shots reflects a genuine wasteful
-tournament despite creating good chances for Argentina.
-
----
-
-### Script 02 — xG vs Goals Visualisation ([scripts/02_xg_vs_goals.py](scripts/02_xg_vs_goals.py))
-Produces two charts showing how actual goals compare to expected goals.
-
-**Outputs:**
-- [outputs/figures/01_xg_vs_goals_bar.png](outputs/figures/01_xg_vs_goals_bar.png) — side-by-side bar chart
-- [outputs/figures/02_xg_vs_goals_scatter.png](outputs/figures/02_xg_vs_goals_scatter.png) — scatter plot with diagonal expectation line
-
-**Reading the scatter:** Points above the diagonal line scored more than expected
-(overperformers); below the line = underperformers. Bubble size encodes shots taken.
+Mbappé's +3.98 over 32 shots is a statistically meaningful overperformance signal.
+Lautaro created quality chances but squandered them at scale.
 
 ---
 
-### Script 03 — Defensive Metrics ([scripts/03_defensive_metrics.py](scripts/03_defensive_metrics.py))
-Calculates pressing intensity (pressures per 90) at player and team level, and
-breaks down *where* on the pitch teams apply pressure (pitch thirds analysis).
+### `02_xg_vs_goals.py` — xG vs Goals Visualisation
+**What it does:** Produces two charts comparing expected goals to actual goals:
+1. Horizontal bar chart — side-by-side xG vs goals for top players
+2. Scatter plot — each dot is a player; the diagonal y=x line is "exact expectation";
+   dots above the line are overperformers, below are underperformers; bubble size = shots.
 
-**Outputs:**
-- [outputs/figures/03_team_pressing_p90.png](outputs/figures/03_team_pressing_p90.png)
-- [outputs/figures/03_pressure_zones_comparison.png](outputs/figures/03_pressure_zones_comparison.png)
-- [outputs/tables/player_pressures_p90.csv](outputs/tables/player_pressures_p90.csv)
-- [outputs/tables/team_pressures_p90.csv](outputs/tables/team_pressures_p90.csv)
+**Output files:**
+- `outputs/figures/01_xg_vs_goals_bar.png`
+- `outputs/figures/02_xg_vs_goals_scatter.png`
 
-**Key findings:**
+---
+
+### `03_defensive_metrics.py` — Pressures Per 90 + Pitch Zones
+**What it does:** Calculates pressing intensity (pressures per 90 minutes) at both
+player and team level. Also breaks down *where* on the pitch teams apply pressure —
+defensive, middle, and attacking thirds.
+
+**Output files:**
+- `outputs/figures/03_team_pressing_p90.png`
+- `outputs/figures/03_pressure_zones_comparison.png`
+- `outputs/tables/player_pressures_p90.csv`
+- `outputs/tables/team_pressures_p90.csv`
+
+**Key results:**
 
 | Team | P/90 |
-|------|------|
-| Japan | 173.0 (highest) |
+|---|---|
+| Japan | 173.0 — highest pressing volume |
 | Morocco | 155.0 |
-| England | 97.0 (lowest) |
+| England | 97.0 — lowest pressing volume |
 
-Counterintuitive zone result: *bottom* pressers (England, Belgium, Portugal,
-Switzerland) applied a higher share of their pressure in the attacking third
-(28.2%) than top pressers (20.4%). Top pressers applied more in the defensive
-third — suggesting reactive rather than proactive pressing when stretched.
-This pattern directly informs our research question on defensive behaviour.
+Zone finding: the top 4 pressers apply 20.4% in the attacking third vs 28.2% for
+the bottom 4 — high-volume pressers push deeper, not higher.
 
 ---
 
-### Script 04 — Pitch Maps ([scripts/04_pitch_map.py](scripts/04_pitch_map.py))
-Spatial visualisations placing event data directly on a football pitch using `mplsoccer`.
+### `04_pitch_map.py` — Pitch Map Visualisations
+**What it does:** Renders event data spatially on a football pitch using `mplsoccer`.
+Produces Messi's full shot map (bubble = xG, red star = goal) and pressure density
+heatmaps for Japan, England, and Morocco.
 
-**Outputs:**
-- [outputs/figures/04a_messi_shot_map.png](outputs/figures/04a_messi_shot_map.png) — Messi's 34 shots (bubble size = xG, red star = goal)
-- [outputs/figures/04b_japan_pressure_heatmap.png](outputs/figures/04b_japan_pressure_heatmap.png) — Japan pressing density (173 P/90)
-- [outputs/figures/04c_england_pressure_heatmap.png](outputs/figures/04c_england_pressure_heatmap.png) — England pressing density (97 P/90)
-- [outputs/figures/04d_morocco_pressure_heatmap.png](outputs/figures/04d_morocco_pressure_heatmap.png) — Morocco pressing density (155 P/90)
-
----
-
-### Script 05 — Press Success Rate ([scripts/05_press_outcomes.py](scripts/05_press_outcomes.py))
-Converts pressing from a volume metric into an effectiveness metric. A press is
-"successful" if the very next event shows the pressing team in possession.
-
-**Outputs:**
-- [outputs/figures/05_press_volume_vs_success.png](outputs/figures/05_press_volume_vs_success.png) — scatter of P/90 vs success rate per team
-- [outputs/tables/press_success_rate.csv](outputs/tables/press_success_rate.csv)
-
-**Key finding:** Correlation between press volume (P/90) and success rate = **-0.465**.
-High-volume teams win the ball back less often per press. Spain pressed least among
-competitive teams (111.2 P/90) but had the highest immediate success rate (18.0%).
-Japan pressed most (173 P/90) with only 5.8% success.
+**Output files:**
+- `outputs/figures/04a_messi_shot_map.png`
+- `outputs/figures/04b_japan_pressure_heatmap.png`
+- `outputs/figures/04c_england_pressure_heatmap.png`
+- `outputs/figures/04d_morocco_pressure_heatmap.png`
 
 ---
 
-### Script 06 — PPDA ([scripts/06_ppda.py](scripts/06_ppda.py))
-Calculates PPDA (Passes Allowed Per Defensive Action) per team — a standard
-pressing efficiency metric combining pressures, interceptions, and tackles.
-Lower PPDA = more aggressive press.
+### `05_press_outcomes.py` — Press Success Rate
+**What it does:** Converts pressing from a volume metric into an *effectiveness* metric.
+A press is "successful" if the very next event shows the pressing team in possession.
+Plots volume vs success rate to reveal the quantity-vs-quality tradeoff.
 
-**Outputs:**
-- [outputs/figures/06_ppda_per_team.png](outputs/figures/06_ppda_per_team.png) — ranked bar chart
-- [outputs/tables/ppda_per_team.csv](outputs/tables/ppda_per_team.csv)
+**Output files:**
+- `outputs/figures/05_press_volume_vs_success.png`
+- `outputs/tables/press_success_rate.csv`
+
+**Key finding:**
+> Correlation between press volume (P/90) and success rate = **−0.465**
+>
+> Spain (111 P/90) → **18.0% success rate** (highest)
+> Japan (173 P/90) → **5.8% success rate** (lowest)
+
+---
+
+### `06_ppda.py` — PPDA (Passes Allowed Per Defensive Action)
+**What it does:** Computes the standard pressing efficiency metric. PPDA = opponent
+passes ÷ (pressures + interceptions + tackles). Lower = more aggressive press.
+
+**Output files:**
+- `outputs/figures/06_ppda_per_team.png`
+- `outputs/tables/ppda_per_team.csv`
+
+**Key results:**
+
+| Team | PPDA |
+|---|---|
+| Spain | **2.29** — most aggressive |
+| Argentina | 2.88 |
+| Japan | 3.94 |
+| Poland | **4.63** — deepest block |
+
+> Correlation between PPDA and press success rate = **−0.630** (strong positive link
+> between pressing efficiency and turnover conversion).
+
+---
+
+### `07_match_state.py` — Pressing by Game State
+**What it does:** Tags every event with the match state (Winning / Drawing / Losing)
+at that moment by reconstructing the running score via vectorised cumsum. Analyses
+how pressing volume and pitch zone shift with the scoreline.
+
+**Output files:**
+- `outputs/figures/07a_pressing_by_match_state.png`
+- `outputs/figures/07b_press_zone_by_state.png`
+- `outputs/tables/pressing_by_match_state.csv`
 
 **Key findings:**
-| Team | PPDA | Interpretation |
-|------|------|----------------|
-| Spain | 2.29 | Most aggressive press |
-| Argentina | 2.88 | Second most aggressive |
-| Japan | 3.94 | High volume, moderate efficiency |
-| Costa Rica | 4.57 | Deepest defensive block |
-| Poland | 4.63 | Most passive press |
 
-Correlation between PPDA and press success rate: **-0.630** (strong). More
-aggressive pressers tend to immediately win the ball back more often.
+| State | Presses / 1,000 events | Attacking-third % |
+|---|---|---|
+| Winning | 75.0 (most) | 21.4% |
+| Drawing | 70.4 | 24.2% |
+| Losing | 66.7 (least) | **25.4%** (highest) |
 
----
-
-### Script 07 — Match State Segmentation ([scripts/07_match_state.py](scripts/07_match_state.py))
-Tags every event with the match state (Winning / Drawing / Losing) at that moment,
-then analyses how pressing volume and zone change with the scoreline.
-
-**Outputs:**
-- [outputs/figures/07a_pressing_by_match_state.png](outputs/figures/07a_pressing_by_match_state.png) — grouped bar chart per team per state
-- [outputs/figures/07b_press_zone_by_state.png](outputs/figures/07b_press_zone_by_state.png) — attacking-third % by state
-- [outputs/tables/pressing_by_match_state.csv](outputs/tables/pressing_by_match_state.csv)
-
-**Key findings:**
-- Tournament-wide, teams press *most* when winning (75 per 1,000 events) and
-  *least* when losing (67 per 1,000 events) — counterintuitively, losing teams
-  do not blindly press harder.
-- However, when losing, teams press *higher up the pitch* (25.4% in attacking
-  third vs 21.4% when winning) — they press selectively, not volumetrically.
-- Extreme examples: Brazil's L/W press ratio = 0.08 (near-total defensive block
-  when behind); South Korea's L/W ratio = 14.50 (desperation high press when losing).
+Teams press *most by volume* when winning, but press *higher up the pitch* when losing.
+Volume and zone are tactically independent signals. Brazil's L/W ratio = 0.08 (near-total
+defensive block when behind). South Korea's = 14.50 (desperation high press).
 
 ---
 
-### Script 08 — xG Conceded vs Pressing Zone ([scripts/08_xg_conceded.py](scripts/08_xg_conceded.py))
-Cross-references pressing aggressiveness with shot quality allowed — testing
-whether pressing high reduces the xG of chances conceded.
+### `08_xg_conceded.py` — Pressing Aggression vs Shot Quality Allowed
+**What it does:** Cross-references pressing aggression (PPDA, attacking-third press %)
+with average xG per shot conceded — testing whether pressing harder results in fewer
+or lower-quality chances against.
 
-**Outputs:**
-- [outputs/figures/08a_att_press_vs_xg_conceded.png](outputs/figures/08a_att_press_vs_xg_conceded.png) — attacking-third press % vs avg xG conceded/shot
-- [outputs/figures/08b_ppda_vs_xg_conceded.png](outputs/figures/08b_ppda_vs_xg_conceded.png) — PPDA vs avg xG conceded/shot
-- [outputs/tables/xg_conceded_vs_pressing.csv](outputs/tables/xg_conceded_vs_pressing.csv)
+**Output files:**
+- `outputs/figures/08a_att_press_vs_xg_conceded.png`
+- `outputs/figures/08b_ppda_vs_xg_conceded.png`
+- `outputs/tables/xg_conceded_vs_pressing.csv`
 
-**Key finding:** PPDA vs avg xG conceded per shot: **r = -0.429, p = 0.014 (significant)**.
-More aggressive pressers concede *higher*-quality shots per attempt — but face *fewer*
-shots overall (Spain: 27 shots faced, fewest of any team). The tradeoff: aggressive
-pressing reduces shot volume but the chances that break through are better quality.
-This is the central quantitative finding toward the research paper's core question.
+**Central finding:**
+> **PPDA vs avg xG per shot conceded: r = −0.429, p = 0.014 (statistically significant)**
+>
+> More aggressive pressers (lower PPDA) concede *higher-quality* shots per attempt
+> — but face far *fewer* shots. Spain: 27 shots faced (fewest of any team), 0.2226
+> avg xG/shot (highest). The tradeoff: **aggressive pressing reduces shot volume but
+> the chances that break through are higher quality.** This is the empirical core
+> finding bridging toward the research paper.
 
 ---
 
-## Research Direction
+### `09_ai_tournament_report.py` — AI Tournament Intelligence Report ✨
+**What it does:** The pipeline's final stage. Loads all computed metric tables, sends
+them to the **Claude API** (Anthropic) with a structured analyst prompt, and generates
+a multi-section tournament intelligence report saved as markdown. Demonstrates the
+complete data engineering pattern: raw events → engineered features → LLM synthesis
+→ structured document.
 
-This practice work feeds into a research investigation of **defensive behaviour and
-possession under pressure**.
+**Requires:** An Anthropic API key.
+
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+python scripts/09_ai_tournament_report.py
+```
+
+**Output files:**
+- `outputs/reports/tournament_intelligence_report.md`
+
+**Report sections Claude generates:**
+1. Executive Summary
+2. Attacking Talent — Who Really Delivered?
+3. The Pressing Hierarchy — Tactics vs Results
+4. How Teams Changed Behaviour Under Pressure
+5. The Central Research Finding (pressing → shot quality tradeoff)
+6. Data-Driven Best XI (metric-justified, position-by-position)
+7. Limitations and Next Steps
+
+---
+
+## Key Findings Summary
+
+| Finding | Value | Interpretation |
+|---|---|---|
+| Top xG overperformer | Mbappé +3.98 | Elite finishing signal |
+| Top xG underperformer | Lautaro −1.91 | Wasteful with quality chances |
+| Highest press volume | Japan 173 P/90 | High effort, low conversion |
+| Highest press efficiency | Spain 18.0% success rate | Selective, lethal pressing |
+| Most aggressive PPDA | Spain 2.29 | Fewest opponent passes allowed |
+| Press volume vs success | r = −0.465 | More pressing ≠ better pressing |
+| PPDA vs success rate | r = −0.630 | Efficient pressers win ball back more |
+| Losing state behaviour | Zone shifts +4pp into att. third | Teams press higher, not harder |
+| **Pressing vs xG conceded** | **r = −0.429, p = 0.014** | **Aggressive press → fewer but better-quality shots against** |
+
+---
+
+## Source Modules (`src/`)
+
+| Module | Functions |
+|---|---|
+| `data_loader.py` | `get_competitions()` · `get_matches()` · `get_all_events()` · `get_shots()` · `get_pressures()` |
+| `metrics.py` | `xg_per_player()` · `pressures_per_90()` · `pressure_zone_counts()` · `press_success_rate()` · `ppda_per_team()` · `tag_match_state()` · `xg_conceded_per_team()` |
+| `viz.py` | `plot_xg_bar()` · `plot_shot_map()` · `plot_pressure_heatmap()` |
 
 ---
 
 ## Dependencies
 
-| Library | Version | Purpose |
-|---------|---------|---------|
-| `statsbombpy` | 1.18.0 | Load StatsBomb Open Data via Python API |
-| `pandas` | 3.0.2 | Data manipulation and aggregation |
-| `numpy` | 2.4.4 | Numerical computation |
-| `matplotlib` | 3.10.9 | Base plotting |
-| `mplsoccer` | 1.6.1 | Football pitch visualisations |
-| `scipy` | 1.17.1 | Statistical analysis |
-| `seaborn` | 0.13.2 | Statistical chart styling |
+| Library | Purpose |
+|---|---|
+| `statsbombpy` | StatsBomb Open Data Python SDK |
+| `pandas` | Data manipulation and aggregation |
+| `numpy` | Vectorised numerical computation |
+| `matplotlib` | Base plotting |
+| `mplsoccer` | Football pitch visualisations |
+| `scipy` | Pearson correlation and statistical testing |
+| `seaborn` | Statistical chart styling |
+| `anthropic` | Claude API client for AI report generation |
 
 ---
 
-*Built with [Claude Code](https://claude.ai/code) as part of an academic football analytics research practice.*
+## Research Direction
+
+This project feeds into an investigation of **defensive behaviour and possession
+under pressure** — specifically whether event-level pressing metrics (PPDA, press
+success rate, pitch zone profiles) predict defensive outcomes (xG conceded) better
+than traditional aggregated statistics.
+
+The statistically significant finding from script 08 (r = −0.429, p = 0.014) is
+the starting point: replicating this across full league seasons and controlling for
+opposition quality would form the empirical core of the research paper.
+
+---
+
+*Built with [Claude Code](https://claude.ai/code) · Data: StatsBomb Open Data · AI: Anthropic Claude*

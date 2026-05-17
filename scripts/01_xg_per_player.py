@@ -5,11 +5,8 @@ Purpose: Calculate cumulative xG per player across the FIFA World Cup 2022,
          identify who generated the highest-quality chances, and save
          the result as a CSV table for use in the next analysis.
 
-We use all 64 matches — the full tournament. This gives us enough shots per
-top player (Mbappe, Messi, Giroud) to draw meaningful conclusions.
-
-Alternative: swap to UEFA Euro 2024 (competition_id=55, season_id=282) for
-             the most recent dataset.
+We use all 64 matches — the full tournament. This gives enough shots per
+top player (Mbappé, Messi, Giroud) to draw meaningful conclusions.
 
 Run: python scripts/01_xg_per_player.py
 """
