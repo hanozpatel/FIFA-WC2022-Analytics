@@ -51,9 +51,9 @@ FIFA-WC2022-Analytics/
 │   └── viz.py                    # Pitch maps and charts via mplsoccer + matplotlib
 │
 ├── outputs/
-│   ├── figures/                  # Saved PNG charts and pitch maps (gitignored)
-│   ├── tables/                   # Saved CSV metric tables (gitignored)
-│   └── reports/                  # AI-generated markdown reports (gitignored)
+│   ├── figures/                  # PNG charts and pitch maps
+│   ├── tables/                   # CSV metric tables
+│   └── reports/                  # AI-generated markdown reports (not committed — requires API key)
 │
 ├── data/
 │   ├── raw/                      # StatsBomb raw cache (gitignored)

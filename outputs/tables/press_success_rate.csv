@@ -1,0 +1,33 @@
+team,total_presses,successful_presses,success_rate_pct,pressures_p90
+Spain,445,80,18.0,111.2
+Canada,380,61,16.1,126.7
+Brazil,605,95,15.7,121.0
+England,485,76,15.7,97.0
+Portugal,530,80,15.1,106.0
+Argentina,980,145,14.8,140.0
+Denmark,336,49,14.6,112.0
+Ecuador,417,59,14.1,139.0
+Wales,354,50,14.1,118.0
+Serbia,360,50,13.9,120.0
+Germany,384,53,13.8,128.0
+United States,537,67,12.5,134.2
+Mexico,382,46,12.0,127.3
+South Korea,515,62,12.0,128.8
+Cameroon,403,47,11.7,134.3
+Netherlands,730,81,11.1,146.0
+Tunisia,361,39,10.8,120.3
+Senegal,512,52,10.2,128.0
+Uruguay,374,38,10.2,124.7
+Croatia,949,97,10.2,135.6
+Saudi Arabia,393,39,9.9,131.0
+Australia,549,53,9.7,137.2
+Morocco,1085,102,9.4,155.0
+Poland,463,42,9.1,115.8
+Switzerland,444,40,9.0,111.0
+France,905,80,8.8,129.3
+Costa Rica,435,37,8.5,145.0
+Qatar,375,30,8.0,125.0
+Iran,452,36,8.0,150.7
+Ghana,412,32,7.8,137.3
+Belgium,309,23,7.4,103.0
+Japan,692,40,5.8,173.0
