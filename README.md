@@ -6,9 +6,6 @@ computes attacking and defensive metrics from raw event data, visualises them
 on pitch maps, runs statistical analyses, and synthesises findings into an
 AI-generated tournament intelligence report using the **Claude API**.
 
-Built as a research practice environment toward a paper on **defensive behaviour
-and possession under pressure**.
-
 ---
 
 ## Dataset
