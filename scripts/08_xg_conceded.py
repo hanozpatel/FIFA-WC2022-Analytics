@@ -1,28 +1,6 @@
 """
-Script 08 — xG Conceded vs Pressing Zone
-==========================================
-Purpose: Test whether pressing HIGH up the pitch correlates with allowing
-         LOWER-quality shots against you.
-
-The hypothesis: teams that press in the opponent's half (attacking third)
-prevent opponents from building up and arriving in good positions to shoot,
-resulting in lower average xG per shot conceded.
-
-This is the analytical bridge between our pressing metrics and defensive
-outcomes — the core question of the research paper.
-
-Two scatter plots are produced:
-  1. % pressure in attacking third  →  avg xG per shot conceded
-  2. PPDA  →  avg xG per shot conceded
-     (PPDA is a single number summarising overall pressing aggression)
-
-Important caveat (and research honesty):
-  64 matches across 32 teams is a small sample. Any correlation found here
-  is directionally interesting but not statistically conclusive. The value
-  is in developing the methodology, not drawing strong causal claims.
-  Replication on a full-season league dataset would be the next step.
-
-Run: python scripts/08_xg_conceded.py
+Cross-reference pressing aggression (PPDA, attacking-third press %)
+with average xG per shot conceded — testing whether pressing harder reduces shot quality allowed.
 """
 
 import sys
@@ -43,7 +21,6 @@ TABLES_DIR = Path(__file__).parent.parent / "outputs" / "tables"
 COMPETITION_ID = 43
 SEASON_ID = 106
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 print("Loading events (FIFA World Cup 2022, all 64 matches)...")
 matches = get_matches(COMPETITION_ID, SEASON_ID)
 match_ids = matches["match_id"].tolist()
@@ -51,14 +28,11 @@ events = get_all_events(match_ids)
 pressures = get_pressures(events)
 print(f"  {len(events):,} events ready.\n")
 
-# ── xG conceded per team ──────────────────────────────────────────────────────
 print("Computing xG conceded per team...")
 xg_con = xg_conceded_per_team(events)
 
-# ── Attacking-third pressure % per team ──────────────────────────────────────
 print("Computing attacking-third pressure % per team...")
 
-# Add x-coordinate from location
 pressures = pressures.copy()
 pressures["x"] = pressures["location"].apply(
     lambda loc: loc[0] if isinstance(loc, list) else None
@@ -75,11 +49,9 @@ for team in pressures["team"].unique():
 
 zone_df = pd.DataFrame(team_zone_rows)
 
-# ── Load PPDA from previous script's output ───────────────────────────────────
 ppda_path = TABLES_DIR / "ppda_per_team.csv"
 ppda_df = pd.read_csv(ppda_path) if ppda_path.exists() else None
 
-# ── Merge everything into one analysis table ──────────────────────────────────
 analysis = xg_con.merge(zone_df, on="team", how="inner")
 if ppda_df is not None:
     analysis = analysis.merge(ppda_df[["team", "ppda"]], on="team", how="left")
@@ -96,7 +68,6 @@ for _, r in analysis.sort_values("avg_xg_per_shot_conceded").iterrows():
         f"{r['avg_xg_per_shot_conceded']:>12.4f} {r['att_third_pct']:>8.1f} {ppda_str:>6}"
     )
 
-# ── Statistical correlation ────────────────────────────────────────────────────
 clean = analysis.dropna(subset=["att_third_pct", "avg_xg_per_shot_conceded"])
 r_zone, p_zone = stats.pearsonr(clean["att_third_pct"], clean["avg_xg_per_shot_conceded"])
 print(f"\nCorrelation: attacking-third press % vs avg xG conceded per shot")
@@ -112,16 +83,13 @@ if ppda_df is not None:
 
 
 def _scatter_with_regression(ax, x, y, labels, xlabel, ylabel, title, colour):
-    """Helper: scatter with regression line and team labels."""
     ax.scatter(x, y, s=70, color=colour, alpha=0.8, edgecolors="white", linewidths=0.5, zorder=3)
 
-    # Regression line
     slope, intercept, r, p, _ = stats.linregress(x, y)
     x_line = np.linspace(x.min(), x.max(), 100)
     ax.plot(x_line, slope * x_line + intercept, "--", color="#2c3e50", linewidth=1.2, alpha=0.7,
             label=f"r={r:.2f}, p={p:.2f}")
 
-    # Team labels
     for xi, yi, label in zip(x, y, labels):
         ax.annotate(label, xy=(xi, yi), xytext=(4, 3), textcoords="offset points",
                     fontsize=7, color="#2c3e50")
@@ -133,7 +101,6 @@ def _scatter_with_regression(ax, x, y, labels, xlabel, ylabel, title, colour):
     ax.spines[["top", "right"]].set_visible(False)
 
 
-# ── Chart 1: Attacking-third press % vs xG conceded ─────────────────────────
 fig, ax = plt.subplots(figsize=(10, 7))
 _scatter_with_regression(
     ax,
@@ -151,7 +118,6 @@ fig.savefig(out1, dpi=150, bbox_inches="tight")
 print(f"\nSaved: {out1}")
 plt.close(fig)
 
-# ── Chart 2: PPDA vs xG conceded ─────────────────────────────────────────────
 if ppda_df is not None:
     fig2, ax2 = plt.subplots(figsize=(10, 7))
     _scatter_with_regression(
@@ -170,20 +136,5 @@ if ppda_df is not None:
     print(f"Saved: {out2}")
     plt.close(fig2)
 
-# ── Save table ────────────────────────────────────────────────────────────────
 analysis.to_csv(TABLES_DIR / "xg_conceded_vs_pressing.csv", index=False)
 print(f"Saved: {TABLES_DIR / 'xg_conceded_vs_pressing.csv'}")
-
-print("\n" + "=" * 60)
-print("Research Interpretation")
-print("=" * 60)
-print("  A negative correlation (r < 0) on Chart 1 would mean:")
-print("  'Teams that press higher concede lower-quality shots.'")
-print("  This would support the 'high press suppresses shot quality' hypothesis.")
-print()
-print("  A positive correlation would mean the opposite — pressing higher")
-print("  may expose space behind the defence, allowing better chances.")
-print()
-print("  Either result is interesting for a research paper!")
-print("  The key is to replicate across more competitions to check robustness.")
-print("\n✓ Analysis 8 complete. All analyses finished.")

@@ -1,13 +1,6 @@
-"""
-Visualisation helpers wrapping mplsoccer and matplotlib.
-
-Every function saves its figure to outputs/figures/ and returns the figure
-object so callers can do further customisation if needed.
-"""
+"""Pitch visualisation helpers using mplsoccer and matplotlib."""
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
 from mplsoccer import Pitch, VerticalPitch
 from pathlib import Path
 import pandas as pd
@@ -41,11 +34,7 @@ def plot_xg_bar(xg_summary: pd.DataFrame, top_n: int = 15, filename: str = "xg_b
 
 
 def plot_shot_map(shots: pd.DataFrame, player_name: str | None = None, filename: str = "shot_map.png") -> plt.Figure:
-    """
-    Plot shot locations on a half-pitch.
-
-    Bubble size encodes xG value. Colour encodes outcome (goal vs no goal).
-    """
+    """Shot map on half-pitch; bubble size = xG, colour = outcome."""
     shots = shots.copy()
 
     # Filter to player if specified
@@ -94,11 +83,7 @@ def plot_shot_map(shots: pd.DataFrame, player_name: str | None = None, filename:
 
 
 def plot_pressure_heatmap(pressures: pd.DataFrame, team_name: str | None = None, filename: str = "pressure_heatmap.png") -> plt.Figure:
-    """
-    Heatmap of where a team applies pressure on the pitch.
-
-    High-intensity pressing teams will show concentration in the opponent half.
-    """
+    """KDE heatmap of pressure locations for a team."""
     pressures = pressures.copy()
     if team_name:
         pressures = pressures[pressures["team"] == team_name]

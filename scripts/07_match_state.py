@@ -1,30 +1,6 @@
 """
-Script 07 — Match State Segmentation of Defensive Behaviour
-=============================================================
-Purpose: Examine whether teams press differently depending on the scoreline —
-         a fundamental question about adaptive defensive behaviour.
-
-Three match states are computed from the perspective of the pressing team:
-  Winning  : pressing team leads at the time of each event
-  Drawing  : scores are level
-  Losing   : pressing team is behind
-
-Research rationale:
-  Game state is a major confounding variable in football analytics. A team that
-  concedes early may press more desperately (chasing the game), while a team
-  protecting a lead may drop into a defensive block and press less. If we measure
-  pressing intensity WITHOUT accounting for game state, we mix two very different
-  tactical situations.
-
-  For a research paper, separating by match state allows you to ask:
-  "Does pressing intensity increase when a team is losing?" (desperation press)
-  or "Does winning change where a team presses?" (game management)
-
-Implementation note:
-  The score at each moment is reconstructed from shot events where outcome == "Goal",
-  using vectorised cumsum — O(n) without row-by-row iteration. See src/metrics.py.
-
-Run: python scripts/07_match_state.py
+Segment pressing behaviour by match state (Winning / Drawing / Losing)
+to examine how teams adapt their defensive approach based on the scoreline.
 """
 
 import sys
@@ -43,14 +19,12 @@ TABLES_DIR = Path(__file__).parent.parent / "outputs" / "tables"
 COMPETITION_ID = 43
 SEASON_ID = 106
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 print("Loading events (FIFA World Cup 2022, all 64 matches)...")
 matches = get_matches(COMPETITION_ID, SEASON_ID)
 match_ids = matches["match_id"].tolist()
 events = get_all_events(match_ids)
 print(f"  {len(events):,} events loaded.\n")
 
-# ── Tag every event with the match state at that moment ───────────────────────
 print("Tagging events with match state (reconstructing running score)...")
 events_tagged = tag_match_state(events)
 print(f"  Match state distribution:")
@@ -58,18 +32,11 @@ state_counts = events_tagged["match_state"].value_counts()
 for state, count in state_counts.items():
     print(f"    {state:<10}: {count:>7,} events ({count / len(events_tagged) * 100:.1f}%)")
 
-# ── Extract pressure events with state tags ────────────────────────────────────
 pressures_tagged = events_tagged[events_tagged["type"] == "Pressure"].copy()
 print(f"\n  Pressure events by state:")
 press_state_counts = pressures_tagged["match_state"].value_counts()
 for state, count in press_state_counts.items():
     print(f"    {state:<10}: {count:>6,} ({count / len(pressures_tagged) * 100:.1f}%)")
-
-# ── Metric 1: Pressures per match by state ────────────────────────────────────
-# Instead of per-90, we normalise by number of team-match-state exposures.
-# A team playing 7 matches has more "Drawing time" than a team playing 3.
-# We count how many distinct (team, match, state) combinations exist and
-# divide total pressures by that count to get avg pressures per match-state.
 
 state_summary = (
     pressures_tagged.groupby(["team", "match_state"])
@@ -83,7 +50,6 @@ state_summary["presses_per_match"] = (
     state_summary["presses"] / state_summary["match_appearances"]
 ).round(1)
 
-# Pivot to wide format for easy reading
 pivot = state_summary.pivot_table(
     index="team",
     columns="match_state",
@@ -91,7 +57,6 @@ pivot = state_summary.pivot_table(
     aggfunc="first",
 ).fillna(0)
 
-# Add a "Losing vs Winning" ratio: > 1 means team presses MORE when losing
 for col in ["Winning", "Drawing", "Losing"]:
     if col not in pivot.columns:
         pivot[col] = 0
@@ -112,13 +77,12 @@ for team, row in pivot.iterrows():
         f"{row['Losing']:>8.1f} {ratio_str:>10}"
     )
 
-# ── Tournament-wide pattern ────────────────────────────────────────────────────
 overall = (
     pressures_tagged.groupby("match_state")
     .agg(total=("id", "count"))
     .reset_index()
 )
-# Normalise by event count per state to account for more time spent drawing
+# normalise by event count per state to control for time exposure
 events_per_state = events_tagged.groupby("match_state").size().reset_index(name="event_count")
 overall = overall.merge(events_per_state, on="match_state")
 overall["presses_per_1000_events"] = (overall["total"] / overall["event_count"] * 1000).round(1)
@@ -132,9 +96,6 @@ for _, r in overall.iterrows():
     bar = "█" * int(r["presses_per_1000_events"] / 4)
     print(f"  {r['match_state']:<10}: {r['presses_per_1000_events']:>5.1f}  {bar}")
 
-# ── Metric 2: Pressing ZONE changes by match state ────────────────────────────
-# Do teams press HIGHER UP the pitch when they're losing?
-# (Desperation press: chase the ball in the opponent's half)
 print("\n" + "=" * 60)
 print("Pressing Zone by Match State (% in Attacking Third)")
 print("=" * 60)
@@ -148,7 +109,6 @@ for state in ["Winning", "Drawing", "Losing"]:
     bar = "█" * int(att_pct_val / 1.5)
     print(f"  {state:<10}: {att_pct_val:>5.1f}% in attacking third  {bar}")
 
-# ── Chart 1: Pressing by state — grouped bar chart ────────────────────────────
 fig, ax = plt.subplots(figsize=(11, 8))
 
 pivot_chart = pivot[["Winning", "Drawing", "Losing"]].copy()
@@ -183,7 +143,6 @@ fig.savefig(out_path, dpi=150, bbox_inches="tight")
 print(f"\nSaved: {out_path}")
 plt.close(fig)
 
-# ── Chart 2: Attacking-third press % by match state ──────────────────────────
 fig2, ax2 = plt.subplots(figsize=(7, 4))
 states = ["Winning", "Drawing", "Losing"]
 vals = [zone_by_state[s] for s in states]
@@ -208,8 +167,5 @@ fig2.savefig(out_path2, dpi=150, bbox_inches="tight")
 print(f"Saved: {out_path2}")
 plt.close(fig2)
 
-# ── Save table ────────────────────────────────────────────────────────────────
 pivot.reset_index().to_csv(TABLES_DIR / "pressing_by_match_state.csv", index=False)
 print(f"Saved: {TABLES_DIR / 'pressing_by_match_state.csv'}")
-
-print("\n✓ Analysis 7 complete. Proceed to scripts/08_xg_conceded.py")

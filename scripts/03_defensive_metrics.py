@@ -1,25 +1,6 @@
 """
-Script 03 — Defensive Metrics
-==============================
-Purpose: Measure pressing intensity (pressures per 90) per player and per team,
-         and show WHERE on the pitch teams apply pressure — a key indicator of
-         defensive shape and tactical philosophy.
-
-Key concepts:
-  Pressure event: StatsBomb records a 'Pressure' whenever a player closes down
-  an opponent in possession. It is the best proxy for pressing in event data.
-
-  Pressures per 90: normalising by minutes prevents comparing a player who
-  played 7 games to one who played 2. We use match count * 90 as a proxy since
-  exact minutes-played data requires a separate extraction.
-
-  Pitch thirds: The StatsBomb pitch is 120x80 yards.
-    Defensive third   : x in [0, 40)
-    Middle third      : x in [40, 80)
-    Attacking third   : x in [80, 120]
-  Pressure in the attacking third = high press. In the defensive third = low block.
-
-Run: python scripts/03_defensive_metrics.py
+Pressures per 90 per player and team, with a pitch-zone breakdown
+showing where teams apply pressure (defensive vs middle vs attacking third).
 """
 
 import sys
@@ -36,10 +17,9 @@ FIGURES_DIR = Path(__file__).parent.parent / "outputs" / "figures"
 TABLES_DIR.mkdir(parents=True, exist_ok=True)
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-COMPETITION_ID = 43   # FIFA World Cup
-SEASON_ID = 106       # 2022
+COMPETITION_ID = 43
+SEASON_ID = 106
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 print("Loading events (FIFA World Cup 2022, all 64 matches)...")
 matches = get_matches(COMPETITION_ID, SEASON_ID)
 match_ids = matches["match_id"].tolist()
@@ -47,9 +27,6 @@ events = get_all_events(match_ids)
 pressures = get_pressures(events)
 print(f"  {len(pressures):,} pressure events loaded across {len(match_ids)} matches.\n")
 
-# ── Metric 1: Pressures per 90 per player ─────────────────────────────────────
-# We only include players with at least 3 matches to filter out squad players
-# who happened to press a lot in one appearance.
 p90 = pressures_per_90(pressures)
 p90_filtered = p90[p90["matches"] >= 3].copy()
 
@@ -61,9 +38,6 @@ print("-" * 65)
 for _, row in p90_filtered.head(20).iterrows():
     print(f"{row['player']:<30} {int(row['matches']):>7} {int(row['total_pressures']):>7} {row['pressures_p90']:>6.1f}")
 
-# ── Metric 2: Team-level pressing ─────────────────────────────────────────────
-# Aggregate total pressures by team across all matches, then normalise by
-# the number of matches played (each match gives 90-min exposure per team).
 team_matches = (
     pressures.groupby("team")["match_id"]
     .nunique()
@@ -89,9 +63,6 @@ print("-" * 55)
 for _, row in team_pressures.iterrows():
     print(f"{row['team']:<28} {int(row['matches_played']):>7} {int(row['total_pressures']):>7} {row['pressures_p90']:>6.1f}")
 
-# ── Metric 3: Pitch zone breakdown ────────────────────────────────────────────
-# Where does pressing happen? Per team tells us their tactical shape.
-# We pick the top 4 pressing teams vs. bottom 4 and compare zones.
 top_teams = team_pressures.head(4)["team"].tolist()
 bottom_teams = team_pressures.tail(4)["team"].tolist()
 
@@ -106,7 +77,6 @@ for label, teams in [("Top 4 pressing teams", top_teams), ("Bottom 4 pressing te
         bar = "█" * int(r["pct"] / 2)
         print(f"    {str(r['zone']):<18} {int(r['pressure_count']):>5} ({r['pct']:>4.1f}%)  {bar}")
 
-# ── Chart: Team pressing bar chart ────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(10, 8))
 sorted_teams = team_pressures.sort_values("pressures_p90")
 colours = ["#e74c3c" if t in top_teams else "#3498db" for t in sorted_teams["team"]]
@@ -122,7 +92,6 @@ fig.savefig(fig_path, dpi=150, bbox_inches="tight")
 print(f"\nSaved: {fig_path}")
 plt.close(fig)
 
-# ── Chart: Zone stacked bar for top vs bottom pressers ────────────────────────
 fig2, ax2 = plt.subplots(figsize=(8, 5))
 zone_labels = ["Defensive Third", "Middle Third", "Attacking Third"]
 colours_zones = ["#3498db", "#f39c12", "#e74c3c"]
@@ -150,10 +119,7 @@ fig2.savefig(fig2_path, dpi=150, bbox_inches="tight")
 print(f"Saved: {fig2_path}")
 plt.close(fig2)
 
-# ── Save tables ────────────────────────────────────────────────────────────────
 p90_filtered.to_csv(TABLES_DIR / "player_pressures_p90.csv", index=False)
 team_pressures.to_csv(TABLES_DIR / "team_pressures_p90.csv", index=False)
 print(f"Saved: {TABLES_DIR / 'player_pressures_p90.csv'}")
 print(f"Saved: {TABLES_DIR / 'team_pressures_p90.csv'}")
-
-print("\n✓ Analysis 3 complete. Proceed to scripts/04_pitch_map.py")

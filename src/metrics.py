@@ -1,30 +1,13 @@
-"""
-Football metric calculations.
-
-Functions here take a cleaned DataFrame and return an aggregated result.
-They are pure functions (no side effects) so they are easy to test and reuse.
-"""
+"""Football metric calculations on StatsBomb event data."""
 
 import numpy as np
 import pandas as pd
 
 
 def xg_per_player(shots: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aggregate xG and goal counts per player.
-
-    StatsBomb includes 'statsbomb_xg' (their proprietary xG model value) on
-    every shot row. We sum these to get cumulative xG, then compare to the
-    actual number of shots that resulted in a goal.
-
-    Returns a DataFrame sorted by xG descending.
-    """
-    # 'outcome' is a dict inside the shot column — after unpacking it becomes
-    # a column called 'outcome' whose values are dicts with a 'name' key.
-    # statsbombpy normalises this for us into an 'outcome' string column.
+    """Aggregate xG and goal counts per player, sorted by cumulative xG."""
     shots = shots.copy()
 
-    # outcome can be a dict {'id': ..., 'name': 'Goal'} or already a string
     if shots["outcome"].dtype == object and shots["outcome"].apply(
         lambda x: isinstance(x, dict)
     ).any():
@@ -52,20 +35,7 @@ def xg_per_player(shots: pd.DataFrame) -> pd.DataFrame:
 
 
 def pressures_per_90(pressures: pd.DataFrame, minutes_played: pd.DataFrame | None = None) -> pd.DataFrame:
-    """
-    Calculate pressures per 90 minutes per player.
-
-    Without a minutes-played table we use a simpler proxy: count total pressures
-    and normalise by the number of distinct matches the player appeared in,
-    then scale to 90-minute equivalents assuming ~90 min/match.
-
-    Args:
-        pressures: DataFrame of pressure events (type == 'Pressure')
-        minutes_played: Optional DataFrame with columns ['player', 'minutes'].
-                        If None, match count proxy is used.
-
-    Returns a DataFrame sorted by pressures_p90 descending.
-    """
+    """Pressures per 90 minutes per player, using match count as proxy for minutes."""
     counts = (
         pressures.groupby("player")
         .agg(
@@ -79,7 +49,6 @@ def pressures_per_90(pressures: pd.DataFrame, minutes_played: pd.DataFrame | Non
         counts = counts.merge(minutes_played, on="player", how="left")
         counts["pressures_p90"] = (counts["total_pressures"] / counts["minutes"] * 90).round(2)
     else:
-        # Proxy: assume 90 minutes per match appearance
         counts["est_minutes"] = counts["matches"] * 90
         counts["pressures_p90"] = (
             counts["total_pressures"] / counts["est_minutes"] * 90
@@ -89,15 +58,9 @@ def pressures_per_90(pressures: pd.DataFrame, minutes_played: pd.DataFrame | Non
 
 
 def pressure_zone_counts(pressures: pd.DataFrame) -> pd.DataFrame:
-    """
-    Bin pressure events into thirds of the pitch by x-coordinate.
-
-    StatsBomb uses a 120x80 yard pitch coordinate system.
-    Defensive third: x in [0, 40), Mid third: [40, 80), Attacking third: [80, 120].
-    """
+    """Bin pressure events into defensive/middle/attacking thirds by x-coordinate."""
     pressures = pressures.copy()
 
-    # location is a list [x, y]; unpack it
     pressures["x"] = pressures["location"].apply(lambda loc: loc[0] if isinstance(loc, list) else None)
 
     bins = [0, 40, 80, 120]
@@ -115,27 +78,13 @@ def pressure_zone_counts(pressures: pd.DataFrame) -> pd.DataFrame:
 
 
 def press_success_rate(events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate the press success rate per team.
-
-    A press is "successful" if the very next event in the match shows the pressing
-    team in possession (possession_team changes to the pressing team). This is a
-    conservative definition — it only captures immediate turnovers, not sequences
-    where the press forced an error two actions later.
-
-    StatsBomb's possession_team column tracks which team controls possession at each
-    event. A change means the ball was won back.
-
-    Returns a DataFrame sorted by success_rate_pct descending.
-    """
+    """Press success rate per team — fraction of pressures immediately winning possession."""
     ev = events.sort_values(["match_id", "index"]).copy()
 
-    # Shift possession_team within each match to get the NEXT event's possession owner
     ev["next_possession_team"] = ev.groupby("match_id")["possession_team"].shift(-1)
 
     presses = ev[ev["type"] == "Pressure"].copy()
 
-    # Press is successful when the next event's possession_team equals the presser's team
     presses["successful"] = presses["team"] == presses["next_possession_team"]
 
     summary = (
@@ -154,21 +103,7 @@ def press_success_rate(events: pd.DataFrame) -> pd.DataFrame:
 
 
 def ppda_per_team(events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate PPDA (Passes Allowed Per Defensive Action) per team.
-
-    PPDA = opponent_passes / (pressures + interceptions + tackles)
-
-    Lower PPDA = more aggressive pressing (fewer opponent passes per defensive action).
-    Higher PPDA = less intense press, defending deeper.
-
-    Defensive actions counted: Pressure events + Interception events +
-    Duel events of type "Tackle".
-
-    Note: This implementation uses all-pitch passes (not restricted to opponent's
-    half) for simplicity. Academic PPDA variants sometimes restrict to the
-    opposition's own half — see Fernandez & Bornn (2018) for the full formulation.
-    """
+    """PPDA per team: opponent passes divided by (pressures + interceptions + tackles)."""
     teams = sorted(events["team"].dropna().unique())
     rows = []
 
@@ -210,38 +145,24 @@ def ppda_per_team(events: pd.DataFrame) -> pd.DataFrame:
 
 
 def tag_match_state(events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a 'match_state' column to every event: "Winning", "Drawing", or "Losing"
-    from the perspective of the team performing that action.
-
-    Uses vectorised cumsum to reconstruct the running score from goal events
-    (shot events where shot_outcome == "Goal") without iterating row-by-row.
-
-    The score at the moment of each event is the cumulative goals BEFORE that event
-    (shift(1) after cumsum, filled with 0 for the first event of each group).
-    """
+    """Add match_state column (Winning/Drawing/Losing) from each team's perspective using vectorised cumsum."""
     ev = events.sort_values(["match_id", "index"]).copy()
 
-    # Identify goal events (type == Shot AND the shot resulted in a Goal)
     goal_col = "shot_outcome" if "shot_outcome" in ev.columns else "outcome"
     ev["_is_goal"] = ((ev["type"] == "Shot") & (ev[goal_col] == "Goal")).astype(int)
 
-    # Goals scored by the acting team BEFORE each event (within each match+team group)
     ev["_team_goals_before"] = (
         ev.groupby(["match_id", "team"])["_is_goal"]
         .transform(lambda s: s.cumsum().shift(1).fillna(0))
     )
 
-    # Total goals in the match BEFORE each event (all teams combined)
     ev["_total_goals_before"] = (
         ev.groupby("match_id")["_is_goal"]
         .transform(lambda s: s.cumsum().shift(1).fillna(0))
     )
 
-    # Opponent goals before this event = total - acting team's goals
     ev["_opp_goals_before"] = ev["_total_goals_before"] - ev["_team_goals_before"]
 
-    # Classify match state
     conditions = [
         ev["_team_goals_before"] > ev["_opp_goals_before"],
         ev["_team_goals_before"] < ev["_opp_goals_before"],
@@ -254,22 +175,12 @@ def tag_match_state(events: pd.DataFrame) -> pd.DataFrame:
 
 
 def xg_conceded_per_team(events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate average xG per shot conceded, per team.
-
-    For each shot event, the "conceding team" is the other team in that match.
-    Aggregating by conceding team gives us how many shots they faced and the
-    total (and average) xG of those shots — a measure of defensive shot quality
-    allowed, independent of whether the shots went in.
-
-    Returns a DataFrame with one row per team, sorted by avg_xg_per_shot_conceded.
-    """
+    """Average xG per shot conceded per team, identifying the conceding team per shot event."""
     shots = events[events["type"] == "Shot"].copy()
 
     xg_col = "statsbomb_xg" if "statsbomb_xg" in shots.columns else "shot_statsbomb_xg"
     shots = shots.dropna(subset=[xg_col])
 
-    # Map each match to its two teams
     teams_per_match = (
         events.groupby("match_id")["team"]
         .apply(lambda x: list(x.dropna().unique()))
@@ -278,7 +189,6 @@ def xg_conceded_per_team(events: pd.DataFrame) -> pd.DataFrame:
     )
     shots = shots.merge(teams_per_match, on="match_id", how="left")
 
-    # The conceding team is whoever in the match is NOT the shooting team
     shots["conceding_team"] = shots.apply(
         lambda r: next(
             (t for t in r["match_teams"] if t != r["team"]), None

@@ -61,6 +61,7 @@ FIFA-WC2022-Analytics/
 │
 ├── notebooks/                    # Jupyter notebooks for exploratory work
 ├── requirements.txt
+├── run.sh                        # One-command pipeline runner (sets up venv + runs all scripts)
 └── README.md
 ```
 
@@ -69,18 +70,36 @@ FIFA-WC2022-Analytics/
 ## Setup
 
 ```bash
-# 1. Clone the repository
 git clone <your-repo-url>
 cd FIFA-WC2022-Analytics
+```
 
-# 2. Create and activate a virtual environment
+### Quick start (recommended)
+
+`run.sh` handles everything — creates the virtual environment, installs dependencies, and runs the full pipeline in order:
+
+```bash
+./run.sh
+```
+
+To also generate the AI tournament report (script 09), set your Anthropic API key first:
+
+```bash
+export ANTHROPIC_API_KEY="your-key-here"   # get one at console.anthropic.com
+./run.sh
+```
+
+> **First run note:** `statsbombpy` fetches data from GitHub on first use — this takes a few minutes. Subsequent runs use a local cache and are much faster.
+
+### Manual setup
+
+If you prefer to run scripts individually:
+
+```bash
 python3 -m venv .venv
-source .venv/bin/activate        # macOS / Linux
-
-# 3. Install dependencies
+source .venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Run the pipeline in order
 python scripts/00_explore_data.py
 python scripts/01_xg_per_player.py
 python scripts/02_xg_vs_goals.py
@@ -91,13 +110,10 @@ python scripts/06_ppda.py
 python scripts/07_match_state.py
 python scripts/08_xg_conceded.py
 
-# 5. Generate the AI report (requires Anthropic API key)
-export ANTHROPIC_API_KEY="your-key-here"   # get one at console.anthropic.com
+# Optional — requires API key
+export ANTHROPIC_API_KEY="your-key-here"
 python scripts/09_ai_tournament_report.py
 ```
-
-> **First run note:** `statsbombpy` fetches data from GitHub on first use.
-> Subsequent runs read from a local cache and are significantly faster.
 
 ---
 
@@ -277,7 +293,7 @@ or lower-quality chances against.
 
 ---
 
-### `09_ai_tournament_report.py` — AI Tournament Intelligence Report ✨
+### `09_ai_tournament_report.py` — AI Tournament Intelligence Report
 **What it does:** The pipeline's final stage. Loads all computed metric tables, sends
 them to the **Claude API** (Anthropic) with a structured analyst prompt, and generates
 a multi-section tournament intelligence report saved as markdown. Demonstrates the
@@ -359,4 +375,4 @@ opposition quality would form the empirical core of the research paper.
 
 ---
 
-*Built with [Claude Code](https://claude.ai/code) · Data: StatsBomb Open Data · AI: Anthropic Claude*
+*Data: StatsBomb Open Data · AI: Anthropic Claude API*

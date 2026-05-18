@@ -1,28 +1,6 @@
 """
-Script 06 — PPDA (Passes Allowed Per Defensive Action)
-=========================================================
-Purpose: Calculate PPDA per team — one of the most widely used pressing
-         efficiency metrics in football analytics research.
-
-Formula:
-  PPDA = opponent_passes / (pressures + interceptions + tackles)
-
-Interpretation:
-  - PPDA = 8  → for every 8 passes the opponent completes, you make 1 defensive action
-  - PPDA = 15 → you allow 15 passes before acting — a much deeper, passive block
-  - LOWER PPDA = more aggressive press | HIGHER PPDA = deeper defensive shape
-
-Why this is better than raw pressures:
-  Pressures per 90 measures effort. PPDA measures *efficiency* — how many passes
-  you allow before you act. A team that presses but intercepts nothing has a high
-  PPDA; a team that makes every press count has a low one.
-
-Academic reference:
-  The metric was popularised by Colin Trainor (StatsBomb) and Michael Caley.
-  It is used as a standard pressing metric in academic studies on pressing
-  intensity (e.g. Andrienko et al. 2019, Forcher et al. 2022).
-
-Run: python scripts/06_ppda.py
+PPDA (Passes Allowed Per Defensive Action) per team.
+Lower PPDA = more aggressive press; higher = deeper defensive shape.
 """
 
 import sys
@@ -40,16 +18,12 @@ TABLES_DIR = Path(__file__).parent.parent / "outputs" / "tables"
 COMPETITION_ID = 43
 SEASON_ID = 106
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 print("Loading events (FIFA World Cup 2022, all 64 matches)...")
 matches = get_matches(COMPETITION_ID, SEASON_ID)
 match_ids = matches["match_id"].tolist()
 events = get_all_events(match_ids)
 print(f"  {len(events):,} events loaded.\n")
 
-# ── Calculate PPDA ────────────────────────────────────────────────────────────
-# This iterates once per team (~32 teams), doing a couple of groupby operations
-# each time — takes a few seconds.
 print("Computing PPDA per team...")
 ppda = ppda_per_team(events)
 
@@ -66,7 +40,6 @@ for _, r in ppda.iterrows():
         f"{int(r['opponent_passes']):>11} {ppda_str:>6}{marker}"
     )
 
-# ── Compare PPDA vs press success rate from script 05 ────────────────────────
 import pandas as pd
 success_path = TABLES_DIR / "press_success_rate.csv"
 if success_path.exists():
@@ -81,17 +54,14 @@ if success_path.exists():
     else:
         print("  → No strong linear relationship between PPDA and immediate press success rate.")
 
-# ── Chart: PPDA horizontal bar chart ─────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(10, 9))
 ppda_sorted = ppda.sort_values("ppda", ascending=False)
 
-# Colour: blue = low PPDA (aggressive), orange = high PPDA (passive)
 median_ppda = ppda["ppda"].median()
 colours = ["#1a78cf" if v < median_ppda else "#f39c12" for v in ppda_sorted["ppda"]]
 
 bars = ax.barh(ppda_sorted["team"], ppda_sorted["ppda"], color=colours, alpha=0.85, edgecolor="white")
 
-# Value labels on bars
 for bar, val in zip(bars, ppda_sorted["ppda"]):
     ax.text(bar.get_width() + 0.05, bar.get_y() + bar.get_height() / 2,
             f"{val:.1f}", va="center", fontsize=8.5)
@@ -114,8 +84,5 @@ fig.savefig(out_path, dpi=150, bbox_inches="tight")
 print(f"\nSaved: {out_path}")
 plt.close(fig)
 
-# ── Save table ────────────────────────────────────────────────────────────────
 ppda.to_csv(TABLES_DIR / "ppda_per_team.csv", index=False)
 print(f"Saved: {TABLES_DIR / 'ppda_per_team.csv'}")
-
-print("\n✓ Analysis 6 complete. Proceed to scripts/07_match_state.py")

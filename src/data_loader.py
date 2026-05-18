@@ -1,11 +1,4 @@
-"""
-Utilities for loading StatsBomb Open Data.
-
-StatsBomb organises data in three layers:
-  competitions -> matches (within a competition+season) -> events (within a match)
-
-We always load events, because that is the row-level data (one row per action).
-"""
+"""Helpers for loading StatsBomb Open Data."""
 
 import pandas as pd
 from statsbombpy import sb
@@ -22,13 +15,7 @@ def get_matches(competition_id: int, season_id: int) -> pd.DataFrame:
 
 
 def get_all_events(match_ids: list[int]) -> pd.DataFrame:
-    """
-    Load and concatenate events for a list of match IDs.
-
-    Each match produces ~2,000–4,000 event rows. Loading many matches at once
-    can be slow the first time (data is fetched from GitHub), but statsbombpy
-    caches responses locally.
-    """
+    """Load and concatenate events for a list of match IDs."""
     frames = []
     for mid in match_ids:
         df = sb.events(match_id=mid)
@@ -38,16 +25,9 @@ def get_all_events(match_ids: list[int]) -> pd.DataFrame:
 
 
 def get_shots(events: pd.DataFrame) -> pd.DataFrame:
-    """
-    Filter events to shot events only.
-
-    statsbombpy v1.x already flattens nested event attributes into prefixed
-    columns (e.g. shot_statsbomb_xg, shot_outcome). We add convenience aliases
-    so downstream code can use the shorter names.
-    """
+    """Filter to shot events and add short-name aliases for statsbomb_xg and outcome."""
     shots = events[events["type"] == "Shot"].copy()
 
-    # Add short-name aliases for the most-used shot columns
     if "shot_statsbomb_xg" in shots.columns and "statsbomb_xg" not in shots.columns:
         shots["statsbomb_xg"] = shots["shot_statsbomb_xg"]
     if "shot_outcome" in shots.columns and "outcome" not in shots.columns:
